@@ -1,42 +1,54 @@
-name: Build APK
-
+name: Build
 on:
   push:
-    branches: [ main ]  # Сборка будет запускаться при каждом пуше в ветку main
-  workflow_dispatch:     # Добавляет кнопку ручного запуска в интерфейсе GitHub
+    branches-ignore:
+      - data
+      - gh-pages
+    tags:
+      - '**'
+  pull_request:
+    branches-ignore:
+      - data
+      - gh-pages
 
 jobs:
-  build:
+  # Build job. Builds app for Android with Buildozer
+  build-android:
+    name: Build for Android
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Скачиваем исходный код вашего репозитория
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
-
-      # 2. Настраиваем кэширование, чтобы сборка не длилась вечно при каждом запуске
-      - name: Cache Buildozer global directory
-        uses: actions/cache@v4
         with:
-          path: .buildozer_global
-          key: buildozer-global-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
+          path: master
 
-      - name: Cache Buildozer local directory
-        uses: actions/cache@v4
+      - name: Build with Buildozer
+        uses: ./master # REPLACE WITH ArtemSBulgakov/buildozer-action@v1
+        id: buildozer
         with:
-          path: .buildozer
-          key: buildozer-local-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
-
-      # 3. Запускаем компиляцию при помощи экшена ArtemSBulgakov
-      - name: Build APK with Buildozer
-        uses: ArtemSBulgakov/buildozer-action@v1
-        with:
-          command: buildozer android debug
+          repository_root: master
+          workdir: test_app
           buildozer_version: stable
 
-      # 4. Сохраняем готовый APK-файл как артефакт сборки
-      - name: Upload APK artifact
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: package
           path: ${{ steps.buildozer.outputs.filename }}
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          path: data
+          ref: data # Branch name
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          architecture: x64
+
+      - name: Push binary to data branch
+        if: github.event_name == 'push'
+        run: python master/.ci/move_binary.py "${{ steps.buildozer.outputs.filename }}" master data bin
