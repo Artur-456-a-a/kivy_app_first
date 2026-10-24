@@ -2,25 +2,52 @@ name: Build Kivy Debug APK
 
 on:
   push:
-    branches: [ main ] # Сборка запускается при пуше в ветку main
-  workflow_dispatch: # Позволяет запускать сборку вручную из вкладки Actions
+    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build-android:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-22.04   # явно фиксируем старую LTS, а не ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Build Debug APK with Buildozer
-        uses: ArtemSBulgakov/buildozer-action@v1
-        id: buildozer
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          command: buildozer android debug
-          buildozer_version: stable # Использует последнюю стабильную версию Buildozer
+          python-version: '3.11'
 
-      - name: Upload APK Artifact
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential git zip unzip \
+            openjdk-17-jdk \
+            autoconf libtool pkg-config zlib1g-dev \
+            libncurses5-dev libncursesw5-dev libtinfo6 \
+            cmake libffi-dev libssl-dev \
+            libsqlite3-dev libgdbm-dev libbz2-dev libreadline-dev \
+            liblzma-dev libgstreamer1.0-dev gstreamer1.0-plugins-base \
+            gstreamer1.0-plugins-good
+
+      - name: Install buildozer and cython
+        run: |
+          python -m pip install --upgrade pip
+          pip install cython buildozer
+
+      - name: Cache Buildozer (SDK/NDK и глобальный кэш)
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.buildozer
+            .buildozer
+          key: buildozer-${{ hashFiles('buildozer.spec') }}
+
+      - name: Build debug APK
+        run: buildozer -v android debug
+
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: kivy-debug-apk
-          path: ${{ steps.buildozer.outputs.filename }} # Путь к APK берется из выходных данных экшена
+          path: bin/*.apk
