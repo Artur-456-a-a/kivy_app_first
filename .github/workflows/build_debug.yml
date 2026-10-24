@@ -1,26 +1,26 @@
-name: Build Debug APK
+name: Build Kivy Debug APK
 
 on:
   push:
-    branches: [ main ]
-  workflow_dispatch: # Позволяет запускать сборку вручную
+    branches: [ main ] # Сборка запускается при пуше в ветку main
+  workflow_dispatch: # Позволяет запускать сборку вручную из вкладки Actions
 
 jobs:
   build-android:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Build with Buildozer
+      - name: Build Debug APK with Buildozer
         uses: ArtemSBulgakov/buildozer-action@v1
         id: buildozer
         with:
           command: buildozer android debug
-          buildozer_version: stable
+          buildozer_version: stable # Использует последнюю стабильную версию Buildozer
 
-      - name: Upload APK artifact
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: debug-apk
-          path: ${{ steps.buildozer.outputs.filename }}
+          name: kivy-debug-apk
+          path: ${{ steps.buildozer.outputs.filename }} # Путь к APK берется из выходных данных экшена
